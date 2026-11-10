@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package distrisys.storage.v1;
+
+option java_multiple_files = true;
+option java_package = "dev.distrisys.proto.storage";
+
+// The API every storage node exposes. Storage nodes are deliberately dumb:
+// they store and return opaque shards and know nothing about objects,
+// stripes as a whole, or other nodes. All of that is the metadata service's job.
+service StorageNode {
+  // Client streaming: the first message is a header, the rest are data chunks.
+  // The node acknowledges only after the shard is fsynced and renamed into place.
+  rpc WriteShard(stream WriteShardRequest) returns (WriteShardResponse);
+
+  // Server streaming: the first message is a header, then the data chunks.
+  // The node verifies the on-disk checksum before sending anything.
+  rpc ReadShard(ReadShardRequest) returns (stream ReadShardResponse);
+}
+
+// Globally unique, so retrying a write lands on the same name (idempotent).
+message ShardId {
+  string version_id = 1;     // object version (pending or committed), assigned by metadata
+  uint32 stripe_index = 2;   // which 1 MB stripe of the object
+  uint32 shard_index = 3;    // 0..3 = data shards, 4..5 = parity shards
+}
+
+message WriteShardRequest {
+  oneof payload {
+    WriteShardHeader header = 1;
+    bytes chunk = 2;
+  }
+}
+
+message WriteShardHeader {
+  ShardId shard_id = 1;
+  uint64 length = 2;   // total payload bytes the client will send
+  uint32 crc32c = 3;   // checksum the client computed: the node rejects the write if the bytes it received don't match
+}
+
+message WriteShardResponse {
+  ShardId shard_id = 1;
+  uint64 length = 2;
+  uint32 crc32c = 3;
+}
+
+message ReadShardRequest {
+  ShardId shard_id = 1;
+}
+
+message ReadShardResponse {
+  oneof payload {
+    ReadShardHeader header = 1;
+    bytes chunk = 2;
+  }
+}
+
+message ReadShardHeader {
+  ShardId shard_id = 1;
+  uint64 length = 2;
+  uint32 crc32c = 3;
+}
