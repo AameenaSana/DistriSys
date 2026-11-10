@@ -11,4 +11,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "distrisys"
 
-include("proto", "storage-node")
+include("proto", "erasure", "storage-node")
