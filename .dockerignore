@@ -1,0 +1,3 @@
+# Only the prebuilt distributions go into the build context, not sources or Gradle caches.
+*
+!*/build/install/

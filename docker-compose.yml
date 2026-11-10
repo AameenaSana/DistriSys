@@ -1,0 +1,40 @@
+# Local cluster. Milestone 1: storage nodes only; metadata and gateway are added when they exist.
+#   ./gradlew installDist && docker compose up --build -d
+name: distrisys
+
+x-storage-node: &storage-node
+  build:
+    context: .
+    args:
+      APP: storage-node
+  image: distrisys/storage-node:dev
+  # Longer than the node's own 10 s grace period, so it can finish in-flight writes before SIGKILL.
+  stop_grace_period: 15s
+  networks: [cluster]
+  environment: &storage-env
+    PORT: "9090"
+    DATA_DIR: /data
+    JAVA_OPTS: "-XX:MaxRAMPercentage=75"
+  mem_limit: 512m
+
+services:
+  storage-1:
+    <<: *storage-node
+    environment:
+      <<: *storage-env
+      NODE_ID: storage-1
+    volumes: [storage-1-data:/data]
+
+  storage-2:
+    <<: *storage-node
+    environment:
+      <<: *storage-env
+      NODE_ID: storage-2
+    volumes: [storage-2-data:/data]
+
+networks:
+  cluster: {}
+
+volumes:
+  storage-1-data: {}
+  storage-2-data: {}

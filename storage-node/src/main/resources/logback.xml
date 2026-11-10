@@ -1,0 +1,15 @@
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- NODE_ID comes from the environment, so interleaved logs from many containers stay readable. -->
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level [${NODE_ID:-local}] %logger{0} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="io.grpc" level="WARN"/>
+    <logger name="io.grpc.netty" level="WARN"/>
+
+    <root level="${LOG_LEVEL:-INFO}">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
