@@ -30,3 +30,14 @@ val shardCliScripts by tasks.registering(CreateStartScripts::class) {
 distributions.main {
     contents { from(shardCliScripts) { into("bin") } }
 }
+
+val shardUiScripts by tasks.registering(CreateStartScripts::class) {
+    mainClass = "dev.distrisys.storage.ShardUi"
+    applicationName = "shard-ui"
+    outputDir = layout.buildDirectory.dir("shard-ui-scripts").get().asFile
+    classpath = tasks.startScripts.get().classpath
+}
+
+distributions.main {
+    contents { from(shardUiScripts) { into("bin") } }
+}

@@ -38,6 +38,16 @@ Get-FileHash -Algorithm SHA256 -Path README.md, $copy
 
 The CLI reports the byte count and CRC32C for each operation. The two SHA-256 hashes should match. Press **Ctrl+C** in the server window to stop the node.
 
+### Browser shard console
+
+With the storage node running, start the local UI bridge in a second terminal:
+
+```powershell
+.\storage-node\build\install\storage-node\bin\shard-ui.bat 127.0.0.1:9090 8080
+```
+
+Open [the local shard console](http://127.0.0.1:8080/). Enter a version ID, stripe index, and shard index. Choose a file to upload, or reuse the same three values to download a stored shard. The bridge listens on loopback and forwards each transfer to the configured gRPC node.
+
 ### Run two nodes with Docker Compose
 
 With Docker Desktop running in Linux container mode, build the distribution before starting Compose:

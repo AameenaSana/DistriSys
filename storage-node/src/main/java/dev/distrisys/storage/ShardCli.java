@@ -50,9 +50,12 @@ public final class ShardCli {
         ManagedChannel channel = Grpc.newChannelBuilder(args[0], InsecureChannelCredentials.create()).build();
         try {
             if (args[1].equals("put")) {
-                put(channel, id, Files.readAllBytes(file));
+                WriteShardResponse ack = put(channel, id, Files.readAllBytes(file));
+                System.out.printf("OK stored %d bytes, crc32c=%08x%n", ack.getLength(), ack.getCrc32C());
             } else {
-                get(channel, id, file);
+                byte[] data = get(channel, id);
+                Files.write(file, data);
+                System.out.printf("OK read %d bytes, crc32c=%08x -> %s%n", data.length, crc(data), file);
             }
         } catch (StatusRuntimeException e) {
             System.err.println("FAILED: " + e.getStatus().getCode() + " - " + e.getStatus().getDescription());
@@ -62,9 +65,10 @@ public final class ShardCli {
         }
     }
 
-    private static void put(ManagedChannel channel, ShardId id, byte[] data) throws Exception {
+    static WriteShardResponse put(ManagedChannel channel, ShardId id, byte[] data) throws Exception {
         CompletableFuture<WriteShardResponse> result = new CompletableFuture<>();
-        StreamObserver<WriteShardRequest> requests = StorageNodeGrpc.newStub(channel).writeShard(new StreamObserver<>() {
+        StreamObserver<WriteShardRequest> requests = StorageNodeGrpc.newStub(channel)
+                .withDeadlineAfter(30, TimeUnit.SECONDS).writeShard(new StreamObserver<>() {
             @Override
             public void onNext(WriteShardResponse r) {
                 result.complete(r);
@@ -88,14 +92,13 @@ public final class ShardCli {
         }
         requests.onCompleted();
         try {
-            WriteShardResponse ack = result.get(30, TimeUnit.SECONDS);
-            System.out.printf("OK stored %d bytes, crc32c=%08x%n", ack.getLength(), ack.getCrc32C());
+            return result.get(30, TimeUnit.SECONDS);
         } catch (java.util.concurrent.ExecutionException e) {
             throw (Exception) e.getCause();
         }
     }
 
-    private static void get(ManagedChannel channel, ShardId id, Path file) throws Exception {
+    static byte[] get(ManagedChannel channel, ShardId id) throws java.io.IOException {
         Iterator<ReadShardResponse> it = StorageNodeGrpc.newBlockingStub(channel)
                 .withDeadlineAfter(30, TimeUnit.SECONDS)
                 .readShard(ReadShardRequest.newBuilder().setShardId(id).build());
@@ -107,11 +110,9 @@ public final class ShardCli {
         byte[] data = out.toByteArray();
         // Verify end-to-end: the node checked its disk, we check what arrived over the network.
         if (crc(data) != header.getHeader().getCrc32C() || data.length != header.getHeader().getLength()) {
-            System.err.println("FAILED: received data does not match the node's header");
-            System.exit(1);
+            throw new java.io.IOException("received data does not match the node's header");
         }
-        Files.write(file, data);
-        System.out.printf("OK read %d bytes, crc32c=%08x -> %s%n", data.length, crc(data), file);
+        return data;
     }
 
     private static int crc(byte[] data) {
