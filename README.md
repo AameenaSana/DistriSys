@@ -1,6 +1,6 @@
 # DistriSys
 
-DistriSys is a Java 21 prototype for distributed object storage with Reed–Solomon erasure coding. The current implementation stores and verifies individual shards over gRPC and includes the finite-field arithmetic and generator matrix for a 4+2 codec.
+DistriSys is a Java 21 prototype for distributed object storage with Reed–Solomon erasure coding. The current implementation stores and verifies individual shards over gRPC and can encode and reconstruct stripes with a standalone 4+2 codec.
 
 The target design splits each object into stripes and stores four data shards and two parity shards per stripe across six distinct nodes. Any four valid shards can reconstruct a stripe. At full stripe size, this uses 1.5× the original data size for shard payloads, compared with 3× for triple replication. These are design ratios before padding and metadata.
 
@@ -10,7 +10,7 @@ The target design splits each object into stripes and stores four data shards an
 | --- | --- |
 | Shard storage | Streaming gRPC writes and reads, CRC32C verification, and a command-line client |
 | Local deployment | Docker Compose configuration for two independent storage nodes with separate volumes |
-| Erasure coding | GF(2⁸) arithmetic and a systematic 6×4 Vandermonde generator. Byte-level encoding and reconstruction are next |
+| Erasure coding | GF(2⁸) arithmetic, systematic Vandermonde encoding, and reconstruction from any four valid shards |
 | Object storage | Planned HTTP gateway, atomic object-version commits, and a single metadata service backed by a write-ahead log and snapshots |
 | Cluster operations | Planned consistent-hash placement, heartbeats, repair, scrubbing, and orphan collection |
 
@@ -60,7 +60,7 @@ Both nodes listen on port 9090 inside the Compose network. The Compose configura
 
 ## Tests and durability
 
-Run the test suite with `.\gradlew.bat test`. The suite covers disk round trips, rejected and abandoned writes, corruption detection, in-process gRPC calls, finite-field properties, and invertibility for all 15 pairs of missing generator rows.
+Run the test suite with `.\gradlew.bat test`. The suite covers disk round trips, rejected and abandoned writes, corruption detection, in-process gRPC calls, finite-field properties, and byte-level reconstruction for all 15 pairs of missing shards.
 
 The storage node writes each shard to a temporary file, validates the declared length and CRC32C, syncs the file, then publishes it by atomic rename. On Linux it also syncs the containing directory before acknowledging the write. Reads verify both the on-disk header and payload before sending bytes.
 
